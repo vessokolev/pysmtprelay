@@ -471,8 +471,20 @@ class MultiDomainAuthenticatedSMTP(SMTP):
         result = await super().smtp_DATA(arg)
         return result
 
-def create_ssl_context(certfile='server.crt', keyfile='server.key'):
-    """Create SSL context for TLS."""
+def create_ssl_context(certfile='server.crt', keyfile='server.key', 
+                      chainfile=None, issuer_cert=None, enable_ocsp_stapling=True):
+    """Create SSL context for TLS with optional OCSP stapling.
+    
+    Args:
+        certfile: Path to server certificate file
+        keyfile: Path to server private key file
+        chainfile: Optional path to certificate chain file (for OCSP)
+        issuer_cert: Optional path to issuer certificate (Sub-CA, for OCSP)
+        enable_ocsp_stapling: Enable OCSP stapling (default True)
+        
+    Returns:
+        Configured SSL context
+    """
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     context.minimum_version = ssl.TLSVersion.TLSv1_3
     
@@ -480,6 +492,37 @@ def create_ssl_context(certfile='server.crt', keyfile='server.key'):
     if os.path.exists(certfile) and os.path.exists(keyfile):
         try:
             context.load_cert_chain(certfile, keyfile)
+            
+            # Load certificate chain if provided (for OCSP)
+            if chainfile and os.path.exists(chainfile):
+                try:
+                    context.load_verify_locations(chainfile)
+                except Exception as e:
+                    print(f"Warning: Could not load certificate chain: {e}")
+            
+            # Determine issuer certificate (for OCSP requests)
+            # Priority: explicit issuer_cert > extract from chainfile > default
+            if not issuer_cert:
+                if chainfile and os.path.exists(chainfile):
+                    # Try to use sub-ca.crt if it exists
+                    if os.path.exists('certs/sub-ca.crt'):
+                        issuer_cert = 'certs/sub-ca.crt'
+                elif os.path.exists('certs/sub-ca.crt'):
+                    issuer_cert = 'certs/sub-ca.crt'
+            
+            # Enable OCSP stapling if requested
+            if enable_ocsp_stapling:
+                try:
+                    from ocsp_stapling import enable_ocsp_stapling_pyopenssl, enable_ocsp_stapling
+                    # Try pyOpenSSL first, fallback to basic implementation
+                    if not enable_ocsp_stapling_pyopenssl(context, certfile, chainfile, issuer_cert):
+                        enable_ocsp_stapling(context, certfile, chainfile, issuer_cert)
+                except ImportError:
+                    try:
+                        from ocsp_stapling import enable_ocsp_stapling
+                        enable_ocsp_stapling(context, certfile, chainfile, issuer_cert)
+                    except Exception as e:
+                        print(f"Warning: Could not enable OCSP stapling: {e}")
         except Exception as e:
             print(f"Warning: Could not load certificates: {e}")
             # Fall back to no verification
@@ -558,7 +601,10 @@ def main():
     parser.add_argument('--port-587', type=int, default=8587, help='Port for STARTTLS (default 8587)')
     parser.add_argument('--certfile', default='certs/server-cert.pem', help='Server certificate file')
     parser.add_argument('--keyfile', default='certs/server-key.pem', help='Server private key file')
+    parser.add_argument('--chainfile', default=None, help='Certificate chain file (for OCSP stapling)')
+    parser.add_argument('--issuer-cert', default=None, help='Issuer certificate file (Sub-CA, for OCSP)')
     parser.add_argument('--no-ssl', action='store_true', help='Start without SSL (testing only)')
+    parser.add_argument('--no-ocsp-stapling', action='store_true', help='Disable OCSP stapling')
     parser.add_argument('--no-rate-limit', action='store_true', help='Disable rate limiting')
     parser.add_argument('--no-audit-log', action='store_true', help='Disable audit logging')
     parser.add_argument('--rate-limit-per-minute', type=int, default=5, help='Max attempts per minute (default 5)')
@@ -616,8 +662,13 @@ def main():
             print("Please run generate_certificates.py first or use --no-ssl for testing")
             return
         
-        # Create SSL context
-        ssl_context = create_ssl_context(args.certfile, args.keyfile)
+        # Create SSL context with OCSP stapling support
+        ssl_context = create_ssl_context(
+            args.certfile, 
+            args.keyfile,
+            chainfile=args.chainfile,
+            enable_ocsp_stapling=not args.no_ocsp_stapling
+        )
         
         # Start SMTPS server (port 8465) - SSL from the start
         print("Starting multi-domain SMTP server...")

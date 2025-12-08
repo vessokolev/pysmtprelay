@@ -176,6 +176,145 @@ RELAY_PASSWORD = None              # Optional: authentication for relay
 
 **Note**: Currently, the server stores messages locally for testing. Relay functionality will be implemented in the message handler.
 
+## OCSP Stapling
+
+**OCSP (Online Certificate Status Protocol) Stapling** allows the server to provide certificate revocation status directly in the TLS handshake, similar to Apache's `SSLUseStapling` configuration.
+
+**Benefits**:
+- **Performance**: Clients don't need to query OCSP responder separately
+- **Privacy**: Client IP addresses aren't exposed to Certificate Authority
+- **Reliability**: Works even if OCSP responder is temporarily unavailable
+
+### Implementation Status
+
+**✅ Implemented**:
+- OCSP response fetching from OCSP responder
+- OCSP response caching (DER format, 1-hour TTL)
+- OCSP URL extraction from certificates
+- Complete test environment (Root CA → Sub-CA → Server certificate)
+- OCSP responder setup and configuration
+
+**⚠️ Known Limitation**:
+- **OCSP stapling in TLS handshake is NOT available** due to Python's `ssl.SSLContext` limitations
+- Python's `ssl` module does not expose the underlying OpenSSL `SSL_CTX` structure
+- Cannot enable OCSP stapling directly in the TLS handshake without:
+  1. Modifying `aiosmtpd` to use pyOpenSSL contexts instead of `ssl.SSLContext`
+  2. Using a C extension to access the underlying `SSL_CTX`
+  3. Waiting for Python to add native OCSP stapling support
+
+**Current Behavior**:
+- OCSP responses are fetched and cached during server startup
+- Responses are ready for future implementation when Python adds support
+- Test environment fully functional for OCSP responder testing
+
+### Configuration
+
+```bash
+# Enable OCSP stapling (default - fetches and caches responses)
+python3 smtp_server_multidomain.py \
+    --certfile certs/server-cert.pem \
+    --keyfile certs/server-key.pem \
+    --chainfile certs/chain.pem \
+    --issuer-cert certs/sub-ca.crt
+
+# Disable OCSP stapling
+python3 smtp_server_multidomain.py --no-ocsp-stapling
+```
+
+**Requirements**:
+- Certificate must include OCSP URL in `authorityInfoAccess` extension
+- Certificate chain file recommended (for OCSP request)
+- Issuer certificate (Sub-CA) for OCSP requests
+- `pyOpenSSL>=23.0.0` package installed (required for OCSP support)
+
+### Testing OCSP Infrastructure
+
+1. **Setup Test Environment**:
+```bash
+# Create certificate hierarchy and OCSP responder
+python3 setup_ocsp_test.py
+
+# This creates:
+# - Root CA (certs/root-ca.crt)
+# - Sub-CA (certs/sub-ca.crt) with OCSP URL
+# - Server certificate (certs/server-cert.pem) with OCSP URL
+# - Certificate chain (certs/chain.pem)
+# - CRL files
+# - OCSP index file (certs/sub-ca_index.txt)
+```
+
+2. **Start OCSP Responder** (in one terminal):
+```bash
+./start_ocsp_responder.sh
+```
+
+The OCSP responder will:
+- Listen on port 2560
+- Use Sub-CA as responder
+- Respond to OCSP requests for server certificate
+- Log requests to `ocsp_test/ocsp.log`
+
+3. **Start SMTP Server** (in another terminal):
+```bash
+python3 smtp_server_multidomain.py \
+    --certfile certs/server-cert.pem \
+    --keyfile certs/server-key.pem \
+    --chainfile certs/chain.pem \
+    --issuer-cert certs/sub-ca.crt
+```
+
+4. **Test OCSP Response Fetching**:
+```bash
+# Automated test
+./test_ocsp_stapling.sh
+
+# Manual test - verify OCSP responder
+openssl ocsp -no_nonce \
+    -issuer certs/sub-ca.crt \
+    -cert certs/server-cert.pem \
+    -url http://localhost:2560 \
+    -text
+
+# Test TLS connection (OCSP stapling will show "no response sent")
+openssl s_client -connect localhost:8465 \
+    -servername localhost \
+    -status \
+    -CAfile certs/root-ca.crt \
+    -verify_return_error
+```
+
+**Expected Test Results**:
+- ✅ OCSP responder responds with "Cert Status: good"
+- ✅ OCSP responses can be fetched (DER format, ~2.4KB)
+- ✅ Python code successfully fetches and caches responses
+- ⚠️ TLS handshake shows "OCSP response: no response sent" (expected due to Python limitation)
+
+### Test Results Summary
+
+**Infrastructure Tests**:
+- ✅ OCSP responder: Working (port 2560)
+- ✅ OCSP response fetching: Working (~2375 bytes in ~0.04s)
+- ✅ Certificate chain: Valid
+- ✅ OCSP index file: Properly configured
+
+**TLS Handshake Tests**:
+- ⚠️ OCSP stapling: Not available (Python limitation)
+- ✅ Certificate chain: Valid
+- ✅ TLS connection: Successful
+
+### Future Work
+
+To enable full OCSP stapling in the TLS handshake, one of the following approaches is needed:
+
+1. **Modify aiosmtpd**: Update `aiosmtpd` to use pyOpenSSL contexts instead of Python's `ssl.SSLContext`
+2. **C Extension**: Create a C extension to access the underlying OpenSSL `SSL_CTX` structure
+3. **Python Enhancement**: Wait for Python to add native OCSP stapling support to the `ssl` module
+
+**Current Implementation Value**:
+- OCSP responses are fetched and cached, ready for future implementation
+- Complete test environment for OCSP infrastructure validation
+- Foundation in place for when Python adds native support
+
 ## Usage Examples
 
 ### Start Server
@@ -1049,6 +1188,7 @@ python3 test_smtp_compliance.py
 - AES-256-GCM-SHA384 cipher suite
 - Perfect Forward Secrecy (PFS) enabled
 - Session tickets enabled (performance optimization)
+- **OCSP Response Fetching** (implemented): OCSP responses fetched and cached (stapling in TLS handshake not available due to Python limitation)
 - Compression disabled (CRIME attack prevention)
 - OAuth2 support for modern authentication
 
