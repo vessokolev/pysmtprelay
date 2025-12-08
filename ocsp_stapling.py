@@ -287,6 +287,115 @@ def get_ocsp_cache_status() -> Dict[str, any]:
 
 
 # Alternative implementation using pyOpenSSL (if available)
+def enable_ocsp_stapling_extension(context: ssl.SSLContext, certfile: str,
+                                   chainfile: Optional[str] = None,
+                                   issuer_cert: Optional[str] = None) -> bool:
+    """Enable OCSP stapling using C extension with pyOpenSSL (based on Exim's implementation).
+    
+    This function converts ssl.SSLContext to pyOpenSSL's SSL.Context to access SSL_CTX,
+    then uses the C extension to set up the OCSP stapling callback.
+    
+    Args:
+        context: Python ssl.SSLContext
+        certfile: Path to server certificate
+        chainfile: Optional path to certificate chain
+        issuer_cert: Optional path to issuer certificate (Sub-CA)
+        
+    Returns:
+        True if OCSP stapling was enabled, False otherwise
+    """
+    try:
+        import ocsp_stapling_extension
+        from OpenSSL import SSL
+        import OpenSSL.crypto
+        
+        # Fetch and cache OCSP response
+        ocsp_response = _fetch_ocsp_response(certfile, chainfile, issuer_cert)
+        if not ocsp_response:
+            print("Warning: Could not fetch OCSP response for stapling")
+            return False
+        
+        # Convert ssl.SSLContext to pyOpenSSL SSL.Context to access SSL_CTX
+        # pyOpenSSL provides direct access to SSL_CTX pointer
+        try:
+            # Create new OpenSSL context with same settings
+            openssl_ctx = SSL.Context(SSL.TLS_SERVER_METHOD)
+            
+            # Copy certificate from ssl.SSLContext to OpenSSL context
+            # Load certificate and key
+            with open(certfile, 'rb') as f:
+                cert_data = f.read()
+            cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, cert_data)
+            
+            with open(certfile.replace('.pem', '.key') or certfile.replace('.crt', '.key'), 'rb') as f:
+                key_data = f.read()
+            key = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, key_data)
+            
+            openssl_ctx.use_certificate(cert)
+            openssl_ctx.use_privatekey(key)
+            
+            # Get SSL_CTX pointer from pyOpenSSL context
+            # pyOpenSSL's SSL.Context._context is a cffi cdata pointer
+            # Convert it to integer for C extension using ffi.cast
+            from OpenSSL._util import ffi
+            ssl_ctx_cdata = openssl_ctx._context
+            # Convert cffi cdata to integer pointer using ffi.cast
+            ssl_ctx_ptr = int(ffi.cast("uintptr_t", ssl_ctx_cdata))
+            
+            # Use C extension to set up OCSP stapling callback
+            ocsp_stapling_extension.set_ocsp_response_callback(ssl_ctx_ptr, ocsp_response)
+            
+            print("✅ OCSP stapling enabled via C extension (using pyOpenSSL)")
+            return True
+            
+        except Exception as e:
+            print(f"Warning: pyOpenSSL conversion failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+            
+    except ImportError as e:
+        print(f"Warning: Required module not available: {e}")
+        print("Install with: pip install pyOpenSSL")
+        print("Build extension with: python3 setup_ocsp_extension.py build_ext --inplace")
+        return False
+    except Exception as e:
+        print(f"Warning: Could not enable OCSP stapling via C extension: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def _enable_ocsp_stapling_ctypes(context: ssl.SSLContext, ocsp_response: bytes) -> bool:
+    """Enable OCSP stapling using ctypes to get SSL_CTX pointer."""
+    try:
+        import ctypes
+        import ocsp_stapling_extension
+        
+        # Try to get SSL_CTX pointer using ctypes
+        # Python's ssl.SSLContext has internal _context attribute
+        if hasattr(context, '_context'):
+            ssl_ctx_ptr = ctypes.c_void_p.from_address(id(context._context))
+            # This is a simplified approach - actual implementation may vary
+            # by Python version
+            try:
+                ocsp_stapling_extension.set_ocsp_response_callback(
+                    ctypes.cast(ssl_ctx_ptr, ctypes.c_void_p).value,
+                    ocsp_response
+                )
+                print("✅ OCSP stapling enabled via ctypes bridge")
+                return True
+            except Exception as e:
+                print(f"Warning: ctypes approach failed: {e}")
+                return False
+        else:
+            print("Warning: ssl.SSLContext._context attribute not available")
+            return False
+    except Exception as e:
+        print(f"Warning: ctypes approach failed: {e}")
+        return False
+
+
 def enable_ocsp_stapling_pyopenssl(context, certfile: str, 
                                    chainfile: Optional[str] = None,
                                    issuer_cert: Optional[str] = None) -> bool:

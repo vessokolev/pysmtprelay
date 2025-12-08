@@ -513,10 +513,13 @@ def create_ssl_context(certfile='server.crt', keyfile='server.key',
             # Enable OCSP stapling if requested
             if enable_ocsp_stapling:
                 try:
-                    from ocsp_stapling import enable_ocsp_stapling_pyopenssl, enable_ocsp_stapling
-                    # Try pyOpenSSL first, fallback to basic implementation
-                    if not enable_ocsp_stapling_pyopenssl(context, certfile, chainfile, issuer_cert):
-                        enable_ocsp_stapling(context, certfile, chainfile, issuer_cert)
+                    from ocsp_stapling import enable_ocsp_stapling_extension, enable_ocsp_stapling_pyopenssl, enable_ocsp_stapling
+                    # Try C extension first (best approach, based on Exim)
+                    if not enable_ocsp_stapling_extension(context, certfile, chainfile, issuer_cert):
+                        # Fallback to pyOpenSSL
+                        if not enable_ocsp_stapling_pyopenssl(context, certfile, chainfile, issuer_cert):
+                            # Final fallback: basic caching (no stapling)
+                            enable_ocsp_stapling(context, certfile, chainfile, issuer_cert)
                 except ImportError:
                     try:
                         from ocsp_stapling import enable_ocsp_stapling
