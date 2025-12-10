@@ -1,0 +1,21 @@
+FROM quay.io/rockylinux/rockylinux:10
+
+RUN dnf install -y 389-ds-base openldap-clients procps-ng psmisc iproute && \
+    dnf clean all
+
+# Create directories (will be mounted as volumes)
+RUN mkdir -p /etc/dirsrv /var/log/dirsrv /var/lib/dirsrv
+
+# Copy setup script
+COPY setup-ds.sh /usr/local/bin/setup-ds.sh
+RUN chmod +x /usr/local/bin/setup-ds.sh
+
+# Expose ports
+EXPOSE 3389 3636
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s \
+    CMD ldapsearch -x -H ldap://localhost:3389 -b "dc=example,dc=com" -D "cn=Directory Manager" -w changeme -LLL dn || exit 1
+
+# Start directory server
+CMD ["/usr/local/bin/setup-ds.sh"]

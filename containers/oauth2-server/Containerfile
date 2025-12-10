@@ -1,0 +1,24 @@
+# Containerfile for OAuth2 Authorization Server
+FROM python:3.11-slim
+
+LABEL maintainer="SMTP Relay Server"
+LABEL description="OAuth2 Authorization Server with LDAP authentication"
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir aiohttp ldap3
+
+# Copy OAuth2 server
+COPY ldap_oauth2_server.py /app/
+
+# Expose OAuth2 server port
+EXPOSE 9000
+
+# Run OAuth2 server
+ENTRYPOINT ["python3", "ldap_oauth2_server.py"]
+CMD ["--host", "0.0.0.0", "--port", "9000"]
+

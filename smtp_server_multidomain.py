@@ -25,6 +25,7 @@ from aiosmtpd.smtp import SMTP
 # Import multi-domain handlers
 from multidomain_auth_handler import MultiDomainUserAuthHandler, extract_domain
 from oauth2_multidomain_provider import oauth2_multidomain_provider, MultiDomainOAuth2Handler
+from ldap_oauth2_handler import LDAPOAuth2Handler
 from rate_limiter import RateLimiter
 from audit_logger import AuditLogger
 
@@ -619,8 +620,10 @@ def main():
     # Create multi-domain auth handler
     auth_handler = MultiDomainUserAuthHandler(users_dir="users")
     
-    # Create OAuth2 handler
-    oauth2_handler = MultiDomainOAuth2Handler()
+    # Create OAuth2 handler - use LDAP OAuth2 server (authenticates directly against LDAP)
+    import os
+    oauth2_server_url = os.getenv('OAUTH2_SERVER_URL', 'http://localhost:9000')
+    oauth2_handler = LDAPOAuth2Handler(oauth2_server_url=oauth2_server_url)
     
     # Create rate limiter (if not disabled)
     rate_limiter = None
@@ -629,13 +632,13 @@ def main():
             max_attempts_per_minute=args.rate_limit_per_minute,
             max_attempts_per_hour=args.rate_limit_per_hour
         )
-        print("✅ Rate limiting enabled")
+        print("[OK] Rate limiting enabled")
     
     # Create audit logger (if not disabled)
     audit_logger = None
     if not args.no_audit_log:
         audit_logger = AuditLogger(log_file=args.audit_log_file)
-        print(f"✅ Audit logging enabled: {audit_logger.log_file}")
+        print(f"[OK] Audit logging enabled: {audit_logger.log_file}")
     
     # Create message handler
     message_handler = OptimizedMessageHandler()
