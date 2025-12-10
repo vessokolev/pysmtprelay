@@ -29,7 +29,7 @@ class SMTPComplianceTester:
     
     def log(self, test_name, passed, message=""):
         """Log test result."""
-        status = "✅ PASS" if passed else "❌ FAIL"
+        status = "[OK] PASS" if passed else "[FAIL] FAIL"
         self.results.append((test_name, passed, message))
         print(f"{status}: {test_name}")
         if message:
@@ -347,9 +347,9 @@ class SMTPComplianceTester:
         print(f"Passed: {passed}/{total} ({passed*100//total if total > 0 else 0}%)")
         
         if passed == total:
-            print("\n✅ All tests passed! Server is RFC compliant.")
+            print("\n[OK] All tests passed! Server is RFC compliant.")
         else:
-            print("\n⚠️  Some tests failed. Review the results above.")
+            print("\n[WARN]  Some tests failed. Review the results above.")
             print("\nFailed tests:")
             for name, passed, msg in self.results:
                 if not passed:

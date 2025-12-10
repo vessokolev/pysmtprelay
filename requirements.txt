@@ -2,4 +2,8 @@ aiosmtpd>=1.4.4
 cryptography>=41.0.0
 aiofiles>=23.0.0
 pyOpenSSL>=23.0.0  # Required for OCSP stapling support
+aiohttp>=3.9.0  # For OAuth2 authorization server
+ldap3>=2.9.0  # For LDAP authentication
+requests>=2.31.0  # For Keycloak token validation (optional)
+PyJWT>=2.8.0  # For JWT validation (optional)
 

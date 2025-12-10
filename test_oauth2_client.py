@@ -123,9 +123,9 @@ def main():
     )
     
     if success:
-        print("✅ OAuth2 authentication and message sending successful!")
+        print("[OK] OAuth2 authentication and message sending successful!")
     else:
-        print("❌ OAuth2 authentication or message sending failed")
+        print("[FAIL] OAuth2 authentication or message sending failed")
 
 if __name__ == "__main__":
     main()

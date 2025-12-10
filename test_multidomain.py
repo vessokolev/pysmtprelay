@@ -29,12 +29,12 @@ def test_domain_extraction():
         try:
             domain = extract_domain(email)
             if domain == expected_domain:
-                print(f"  ✅ {email} -> {domain}")
+                print(f"  [OK] {email} -> {domain}")
             else:
-                print(f"  ❌ {email} -> {domain} (expected {expected_domain})")
+                print(f"  [FAIL] {email} -> {domain} (expected {expected_domain})")
                 all_passed = False
         except Exception as e:
-            print(f"  ❌ {email} -> Error: {e}")
+            print(f"  [FAIL] {email} -> Error: {e}")
             all_passed = False
     
     return all_passed
@@ -60,9 +60,9 @@ def test_oauth2_provider():
     for email, password, expected_success, expected_domain in auth_tests:
         success, domain = provider.authenticate_user(email, password)
         if success == expected_success and domain == expected_domain:
-            print(f"  ✅ {email} / {password[:3]}... -> {success}, domain: {domain}")
+            print(f"  [OK] {email} / {password[:3]}... -> {success}, domain: {domain}")
         else:
-            print(f"  ❌ {email} / {password[:3]}... -> {success}, domain: {domain} (expected {expected_success}, {expected_domain})")
+            print(f"  [FAIL] {email} / {password[:3]}... -> {success}, domain: {domain} (expected {expected_success}, {expected_domain})")
             all_passed = False
     
     # Test token generation
@@ -79,11 +79,11 @@ def test_oauth2_provider():
             email, password, client_id, client_secret
         )
         if (token is not None) == should_succeed:
-            print(f"  ✅ {email} -> token: {token[:20] if token else 'None'}...")
+            print(f"  [OK] {email} -> token: {token[:20] if token else 'None'}...")
             if token:
                 tokens[email] = token
         else:
-            print(f"  ❌ {email} -> token: {token}")
+            print(f"  [FAIL] {email} -> token: {token}")
             all_passed = False
     
     # Test token validation
@@ -91,9 +91,9 @@ def test_oauth2_provider():
     for email, token in tokens.items():
         info = provider.validate_token(token)
         if info and info.get('user') == email:
-            print(f"  ✅ Token for {email} -> valid, domain: {info.get('domain')}")
+            print(f"  [OK] Token for {email} -> valid, domain: {info.get('domain')}")
         else:
-            print(f"  ❌ Token for {email} -> invalid")
+            print(f"  [FAIL] Token for {email} -> invalid")
             all_passed = False
     
     # Test domain restrictions
@@ -109,9 +109,9 @@ def test_oauth2_provider():
             email, password, client_id, client_secret
         )
         if (token is not None) == should_succeed:
-            print(f"  ✅ {email} with {client_id} -> {'allowed' if token else 'denied'}")
+            print(f"  [OK] {email} with {client_id} -> {'allowed' if token else 'denied'}")
         else:
-            print(f"  ❌ {email} with {client_id} -> {'denied' if token else 'allowed'} (expected {'allowed' if should_succeed else 'denied'})")
+            print(f"  [FAIL] {email} with {client_id} -> {'denied' if token else 'allowed'} (expected {'allowed' if should_succeed else 'denied'})")
             all_passed = False
     
     return all_passed
@@ -147,25 +147,25 @@ def test_smtp_plain_auth(host='localhost', port=8465, use_ssl=False):
             try:
                 server.login(email, password)
                 if should_succeed:
-                    print(f"  ✅ {email} / {password[:3]}... -> Authentication successful")
+                    print(f"  [OK] {email} / {password[:3]}... -> Authentication successful")
                     server.quit()
                 else:
-                    print(f"  ❌ {email} / {password[:3]}... -> Authentication succeeded (should have failed)")
+                    print(f"  [FAIL] {email} / {password[:3]}... -> Authentication succeeded (should have failed)")
                     server.quit()
                     all_passed = False
             except smtplib.SMTPAuthenticationError:
                 if not should_succeed:
-                    print(f"  ✅ {email} / {password[:3]}... -> Authentication failed (as expected)")
+                    print(f"  [OK] {email} / {password[:3]}... -> Authentication failed (as expected)")
                     server.quit()
                 else:
-                    print(f"  ❌ {email} / {password[:3]}... -> Authentication failed (should have succeeded)")
+                    print(f"  [FAIL] {email} / {password[:3]}... -> Authentication failed (should have succeeded)")
                     server.quit()
                     all_passed = False
             except Exception as e:
-                print(f"  ❌ {email} -> Error: {e}")
+                print(f"  [FAIL] {email} -> Error: {e}")
                 all_passed = False
         except Exception as e:
-            print(f"  ❌ {email} -> Connection error: {e}")
+            print(f"  [FAIL] {email} -> Connection error: {e}")
             all_passed = False
             time.sleep(0.5)  # Brief delay between tests
     
@@ -194,12 +194,12 @@ def test_smtp_oauth2_auth(host='localhost', port=8465, use_ssl=False):
             )
             
             if not token and should_succeed:
-                print(f"  ❌ {email} -> Token generation failed")
+                print(f"  [FAIL] {email} -> Token generation failed")
                 all_passed = False
                 continue
             
             if not token:
-                print(f"  ✅ {email} -> Token generation failed (as expected)")
+                print(f"  [OK] {email} -> Token generation failed (as expected)")
                 continue
             
             # Connect (with or without SSL)
@@ -225,25 +225,25 @@ def test_smtp_oauth2_auth(host='localhost', port=8465, use_ssl=False):
             try:
                 server.docmd("AUTH", f"XOAUTH2 {oauth2_b64}")
                 if should_succeed:
-                    print(f"  ✅ {email} -> OAuth2 authentication successful")
+                    print(f"  [OK] {email} -> OAuth2 authentication successful")
                     server.quit()
                 else:
-                    print(f"  ❌ {email} -> OAuth2 authentication succeeded (should have failed)")
+                    print(f"  [FAIL] {email} -> OAuth2 authentication succeeded (should have failed)")
                     server.quit()
                     all_passed = False
             except smtplib.SMTPException as e:
                 if not should_succeed:
-                    print(f"  ✅ {email} -> OAuth2 authentication failed (as expected): {e}")
+                    print(f"  [OK] {email} -> OAuth2 authentication failed (as expected): {e}")
                     server.quit()
                 else:
-                    print(f"  ❌ {email} -> OAuth2 authentication failed (should have succeeded): {e}")
+                    print(f"  [FAIL] {email} -> OAuth2 authentication failed (should have succeeded): {e}")
                     server.quit()
                     all_passed = False
             except Exception as e:
-                print(f"  ❌ {email} -> Error: {e}")
+                print(f"  [FAIL] {email} -> Error: {e}")
                 all_passed = False
         except Exception as e:
-            print(f"  ❌ {email} -> Error: {e}")
+            print(f"  [FAIL] {email} -> Error: {e}")
             all_passed = False
             time.sleep(0.5)  # Brief delay between tests
     
@@ -273,25 +273,25 @@ def test_domain_validation(host='localhost', port=8465, use_ssl=False):
         # Test 1: Valid domain match
         try:
             server.mail("user1@example.com")
-            print("  ✅ MAIL FROM with matching domain -> Accepted")
+            print("  [OK] MAIL FROM with matching domain -> Accepted")
         except Exception as e:
-            print(f"  ❌ MAIL FROM with matching domain -> Rejected: {e}")
+            print(f"  [FAIL] MAIL FROM with matching domain -> Rejected: {e}")
             all_passed = False
         
         # Test 2: Invalid domain mismatch
         try:
             server.mail("user1@company.com")  # Different domain
-            print("  ❌ MAIL FROM with mismatched domain -> Accepted (should be rejected)")
+            print("  [FAIL] MAIL FROM with mismatched domain -> Accepted (should be rejected)")
             all_passed = False
         except smtplib.SMTPException as e:
             if "domain" in str(e).lower() or "mismatch" in str(e).lower():
-                print("  ✅ MAIL FROM with mismatched domain -> Rejected (as expected)")
+                print("  [OK] MAIL FROM with mismatched domain -> Rejected (as expected)")
             else:
-                print(f"  ⚠️  MAIL FROM with mismatched domain -> Rejected (unexpected reason): {e}")
+                print(f"  [WARN]  MAIL FROM with mismatched domain -> Rejected (unexpected reason): {e}")
         
         server.quit()
     except Exception as e:
-        print(f"  ❌ Test setup error: {e}")
+        print(f"  [FAIL] Test setup error: {e}")
         all_passed = False
     
     return all_passed
@@ -330,16 +330,16 @@ def main():
     
     all_passed = True
     for test_name, passed in results:
-        status = "✅ PASSED" if passed else "❌ FAILED"
+        status = "[OK] PASSED" if passed else "[FAIL] FAILED"
         print(f"  {test_name}: {status}")
         if not passed:
             all_passed = False
     
     print("\n" + "=" * 60)
     if all_passed:
-        print("✅ ALL TESTS PASSED")
+        print("[OK] ALL TESTS PASSED")
     else:
-        print("❌ SOME TESTS FAILED")
+        print("[FAIL] SOME TESTS FAILED")
     print("=" * 60)
     
     return 0 if all_passed else 1

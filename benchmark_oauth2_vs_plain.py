@@ -217,11 +217,11 @@ def main():
     print(f"  OAuth2 vs PLAIN: {diff:+.2f} msg/s ({diff_pct:+.1f}%)")
     
     if diff < 0:
-        print(f"  ⚠️  OAuth2 is {abs(diff_pct):.1f}% slower than PLAIN")
+        print(f"  [WARN]  OAuth2 is {abs(diff_pct):.1f}% slower than PLAIN")
     elif diff > 0:
-        print(f"  ✅ OAuth2 is {diff_pct:.1f}% faster than PLAIN")
+        print(f"  [OK] OAuth2 is {diff_pct:.1f}% faster than PLAIN")
     else:
-        print(f"  ➡️  OAuth2 and PLAIN have similar performance")
+        print(f"  -> OAuth2 and PLAIN have similar performance")
     
     if oauth2_result['errors']:
         print(f"\nOAuth2 Errors (first 5):")

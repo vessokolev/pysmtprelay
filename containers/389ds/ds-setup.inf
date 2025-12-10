@@ -1,0 +1,27 @@
+[General]
+FullMachineName=localhost
+SuiteSpotUserID=dirsrv
+SuiteSpotGroup=dirsrv
+ConfigDirectoryAdminID=admin
+ConfigDirectoryAdminPwd=changeme
+ConfigDirectoryLdapURL=ldap://localhost:389/o=NetscapeRoot
+
+[slapd]
+ServerPort=389
+ServerIdentifier=localhost
+Suffix=dc=example,dc=com
+RootDN=cn=Directory Manager
+RootDNPwd=changeme
+InstallLdifFile=base.ldif
+SlapdConfigForMC=Yes
+UseExistingMC=No
+ServerUpgrade=No
+AddSampleEntries=No
+StartServerAfterSetup=Yes
+
+[admin]
+ServerAdminID=admin
+ServerAdminPwd=changeme
+ServerAdminPort=9830
+ServerAdminDomain=localhost
+

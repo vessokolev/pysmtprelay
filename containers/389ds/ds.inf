@@ -1,0 +1,13 @@
+[general]
+full_machine_name = localhost.localdomain
+strict_host_checking = False
+
+[slapd]
+instance_name = localhost
+root_dn = cn=Directory Manager
+root_password = changeme
+port = 3389
+secure_port = 3636
+suffix = dc=example,dc=com
+create_suffix_entry = True
+create_sample_entries = False

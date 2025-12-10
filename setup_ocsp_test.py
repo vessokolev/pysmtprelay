@@ -38,7 +38,7 @@ def create_openssl_config(filename, content):
     """Create OpenSSL configuration file."""
     with open(filename, 'w') as f:
         f.write(content)
-    print(f"✅ Created: {filename}")
+    print(f"[OK] Created: {filename}")
 
 def setup_root_ca():
     """Create Root CA certificate and key."""
@@ -75,7 +75,7 @@ keyUsage = critical, digitalSignature, cRLSign, keyCertSign
                  '-key', 'certs/root-ca.key', '-out', 'certs/root-ca.crt',
                  '-config', 'certs/root-ca.conf', '-extensions', 'v3_ca'])
     
-    print("✅ Root CA created: certs/root-ca.crt")
+    print("[OK] Root CA created: certs/root-ca.crt")
 
 def setup_sub_ca():
     """Create Sub-CA certificate signed by Root CA."""
@@ -131,7 +131,7 @@ OCSP;URI = http://localhost:{OCSP_PORT}
                  '-out', 'certs/sub-ca.crt', '-extensions', 'v3_sub_ca',
                  '-extfile', 'certs/sub-ca-signing.conf'])
     
-    print("✅ Sub-CA created: certs/sub-ca.crt")
+    print("[OK] Sub-CA created: certs/sub-ca.crt")
 
 def setup_server_cert():
     """Create server certificate signed by Sub-CA."""
@@ -203,7 +203,7 @@ OCSP;URI = http://localhost:{OCSP_PORT}
                  '-out', 'certs/server-cert.pem', '-extensions', 'v3_server',
                  '-extfile', 'certs/server-signing.conf'])
     
-    print("✅ Server certificate created: certs/server-cert.pem")
+    print("[OK] Server certificate created: certs/server-cert.pem")
     
     # Add server certificate to Sub-CA index file for OCSP
     # Format: status_flag expiration_date revocation_date serial_number filename
@@ -246,7 +246,7 @@ OCSP;URI = http://localhost:{OCSP_PORT}
             index_entry = f"V\t{not_before}\t\t{serial}\tunknown\t{subject}\n"
             with open('certs/sub-ca_index.txt', 'a') as f:
                 f.write(index_entry)
-            print(f"✅ Added server certificate to OCSP index: {serial}")
+            print(f"[OK] Added server certificate to OCSP index: {serial}")
     except Exception as e:
         print(f"Warning: Could not add server certificate to OCSP index: {e}")
 
@@ -265,7 +265,7 @@ def create_certificate_chain():
         with open('certs/sub-ca.crt', 'r') as subca:
             chain.write(subca.read())
     
-    print("✅ Certificate chain created: certs/chain.pem")
+    print("[OK] Certificate chain created: certs/chain.pem")
 
 def generate_crls():
     """Generate CRL files for Root CA and Sub-CA."""
@@ -404,11 +404,11 @@ authorityKeyIdentifier = keyid:always
                  '-days', '30'], check=False)
     
     if os.path.exists('certs/root-ca.crl') and os.path.exists('certs/sub-ca.crl'):
-        print("✅ CRLs generated:")
+        print("[OK] CRLs generated:")
         print("   - certs/root-ca.crl")
         print("   - certs/sub-ca.crl")
     else:
-        print("⚠️  CRL generation had issues, but continuing...")
+        print("[WARN]  CRL generation had issues, but continuing...")
 
 def setup_ocsp_responder():
     """Setup OCSP responder configuration."""
@@ -448,8 +448,8 @@ basicConstraints = CA:FALSE
 """
     create_openssl_config('ocsp_test/ocsp.conf', ocsp_config)
     
-    print("✅ OCSP responder configuration created: ocsp_test/ocsp.conf")
-    print(f"\n📋 To start OCSP responder, run:")
+    print("[OK] OCSP responder configuration created: ocsp_test/ocsp.conf")
+    print(f"\n[TODO] To start OCSP responder, run:")
     print(f"   openssl ocsp -port {OCSP_PORT} -index certs/index.txt \\")
     print(f"                -CA certs/sub-ca.crt -rkey certs/sub-ca.key \\")
     print(f"                -rsigner certs/sub-ca.crt -text")
@@ -488,7 +488,7 @@ openssl ocsp -port $PORT \\
     with open('start_ocsp_responder.sh', 'w') as f:
         f.write(script)
     os.chmod('start_ocsp_responder.sh', 0o755)
-    print("✅ Created: start_ocsp_responder.sh")
+    print("[OK] Created: start_ocsp_responder.sh")
 
 def verify_setup():
     """Verify the certificate setup."""
@@ -499,32 +499,32 @@ def verify_setup():
     # Verify Root CA
     result = run_command(['openssl', 'x509', '-in', 'certs/root-ca.crt', '-noout', '-text'], check=False)
     if result.returncode == 0:
-        print("✅ Root CA certificate is valid")
+        print("[OK] Root CA certificate is valid")
     
     # Verify Sub-CA
     result = run_command(['openssl', 'x509', '-in', 'certs/sub-ca.crt', '-noout', '-text'], check=False)
     if result.returncode == 0:
-        print("✅ Sub-CA certificate is valid")
+        print("[OK] Sub-CA certificate is valid")
         # Check for OCSP URL
         if 'OCSP' in result.stdout:
-            print("✅ Sub-CA has OCSP URL")
+            print("[OK] Sub-CA has OCSP URL")
     
     # Verify Server cert
     result = run_command(['openssl', 'x509', '-in', 'certs/server-cert.pem', '-noout', '-text'], check=False)
     if result.returncode == 0:
-        print("✅ Server certificate is valid")
+        print("[OK] Server certificate is valid")
         # Check for OCSP URL
         if 'OCSP' in result.stdout:
-            print("✅ Server cert has OCSP URL")
+            print("[OK] Server cert has OCSP URL")
     
     # Verify chain
     if os.path.exists('certs/chain.pem'):
         result = run_command(['openssl', 'verify', '-CAfile', 'certs/root-ca.crt',
                              '-untrusted', 'certs/sub-ca.crt', 'certs/server-cert.pem'], check=False)
         if result.returncode == 0:
-            print("✅ Certificate chain is valid")
+            print("[OK] Certificate chain is valid")
         else:
-            print(f"⚠️  Chain verification: {result.stderr}")
+            print(f"[WARN]  Chain verification: {result.stderr}")
 
 def main():
     """Main setup function."""
@@ -543,7 +543,7 @@ def main():
         verify_setup()
         
         print("\n" + "="*60)
-        print("✅ Setup Complete!")
+        print("[OK] Setup Complete!")
         print("="*60)
         print("\nNext steps:")
         print("1. Start OCSP responder (in one terminal):")
@@ -562,7 +562,7 @@ def main():
         print("\n" + "="*60)
         
     except Exception as e:
-        print(f"\n❌ Error during setup: {e}")
+        print(f"\n[FAIL] Error during setup: {e}")
         import traceback
         traceback.print_exc()
         return 1

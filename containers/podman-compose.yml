@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # 389 Directory Server (LDAP)
+  ldap:
+    build:
+      context: ./389ds
+      dockerfile: Containerfile
+    container_name: smtp-relay-ldap
+    hostname: ldap
+    ports:
+      - "3389:3389"    # HOST:CONTAINER - unprivileged host port 3389 -> container port 3389
+      - "3636:3636"    # HOST:CONTAINER - unprivileged host port 3636 -> container port 3636
+    volumes:
+      - ldap-config:/etc/dirsrv
+      - ldap-logs:/var/log/dirsrv
+      - ldap-lib:/var/lib/dirsrv
+    environment:
+      - DS_DM_PASSWORD=changeme
+    networks:
+      - smtp-relay-net
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ldapsearch", "-x", "-H", "ldap://localhost:3389", "-b", "dc=example,dc=com", "-D", "cn=Directory Manager", "-w", "changeme", "-LLL", "dn"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # OAuth2 Authorization Server (authenticates directly against LDAP)
+  oauth2-server:
+    build:
+      context: ..
+      dockerfile: containers/oauth2-server/Containerfile
+    container_name: smtp-relay-oauth2
+    hostname: oauth2-server
+    ports:
+      - "9000:9000"    # OAuth2 authorization server
+    command:
+      - "--host"
+      - "0.0.0.0"
+      - "--port"
+      - "9000"
+      - "--ldap-url"
+      - "ldap://ldap:3389"
+      - "--ldap-base-dn"
+      - "dc=example,dc=com"
+      - "--ldap-bind-dn"
+      - "cn=Directory Manager"
+      - "--ldap-bind-password"
+      - "changeme"
+      - "--ldap-user-search-base"
+      - "ou=users,dc=example,dc=com"
+    networks:
+      - smtp-relay-net
+    restart: unless-stopped
+    depends_on:
+      ldap:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/oauth2/authorize?client_id=test&response_type=code"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  ldap-config:
+    driver: local
+  ldap-logs:
+    driver: local
+  ldap-lib:
+    driver: local
+
+networks:
+  smtp-relay-net:
+    driver: bridge

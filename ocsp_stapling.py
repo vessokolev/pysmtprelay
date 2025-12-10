@@ -224,12 +224,12 @@ def enable_ocsp_stapling(context: ssl.SSLContext, certfile: str,
         if ocsp_response:
             cert_hash = hashlib.sha256(open(certfile, 'rb').read()).hexdigest()
             _ocsp_cache[cert_hash] = (ocsp_response, time.time())
-            print(f"✅ OCSP response fetched and cached")
+            print(f"[OK] OCSP response fetched and cached")
             print(f"   Note: Actual OCSP stapling in TLS handshake is not available")
             print(f"   due to Python ssl module limitations")
             return True
         else:
-            print(f"⚠️  Could not fetch initial OCSP response")
+            print(f"[WARN]  Could not fetch initial OCSP response")
             print(f"   Check that OCSP responder is running and certificate has OCSP URL")
             return False
         
@@ -345,7 +345,7 @@ def enable_ocsp_stapling_extension(context: ssl.SSLContext, certfile: str,
             # Use C extension to set up OCSP stapling callback
             ocsp_stapling_extension.set_ocsp_response_callback(ssl_ctx_ptr, ocsp_response)
             
-            print("✅ OCSP stapling enabled via C extension (using pyOpenSSL)")
+            print("[OK] OCSP stapling enabled via C extension (using pyOpenSSL)")
             return True
             
         except Exception as e:
@@ -383,7 +383,7 @@ def _enable_ocsp_stapling_ctypes(context: ssl.SSLContext, ocsp_response: bytes) 
                     ctypes.cast(ssl_ctx_ptr, ctypes.c_void_p).value,
                     ocsp_response
                 )
-                print("✅ OCSP stapling enabled via ctypes bridge")
+                print("[OK] OCSP stapling enabled via ctypes bridge")
                 return True
             except Exception as e:
                 print(f"Warning: ctypes approach failed: {e}")
@@ -461,7 +461,7 @@ def enable_ocsp_stapling_pyopenssl(context, certfile: str,
                 )
                 
                 if result == 1:
-                    print("✅ OCSP stapling enabled on SSL context")
+                    print("[OK] OCSP stapling enabled on SSL context")
                     
                     # Set up callback to provide OCSP response
                     # This is more complex and requires a C callback function
@@ -471,7 +471,7 @@ def enable_ocsp_stapling_pyopenssl(context, certfile: str,
                     if ocsp_response:
                         cert_hash = hashlib.sha256(open(certfile, 'rb').read()).hexdigest()
                         _ocsp_cache[cert_hash] = (ocsp_response, time.time())
-                        print(f"✅ OCSP response cached for stapling")
+                        print(f"[OK] OCSP response cached for stapling")
                     
                     return True
                 else:
@@ -488,7 +488,7 @@ def enable_ocsp_stapling_pyopenssl(context, certfile: str,
             # _context is not accessible in Python's ssl.SSLContext
             # This is a fundamental limitation - Python's ssl module doesn't expose
             # the underlying OpenSSL SSL_CTX, so we cannot enable OCSP stapling directly.
-            print("⚠️  Python's ssl.SSLContext does not expose underlying SSL_CTX")
+            print("[WARN]  Python's ssl.SSLContext does not expose underlying SSL_CTX")
             print("   OCSP responses will be cached, but stapling in TLS handshake")
             print("   requires either:")
             print("   1. Modifying aiosmtpd to use pyOpenSSL contexts")
@@ -498,7 +498,7 @@ def enable_ocsp_stapling_pyopenssl(context, certfile: str,
             if ocsp_response:
                 cert_hash = hashlib.sha256(open(certfile, 'rb').read()).hexdigest()
                 _ocsp_cache[cert_hash] = (ocsp_response, time.time())
-                print(f"✅ OCSP response cached (ready for future stapling implementation)")
+                print(f"[OK] OCSP response cached (ready for future stapling implementation)")
             return False
         
     except ImportError:
@@ -525,7 +525,7 @@ def _enable_ocsp_stapling_pyopenssl_wrapper(context, certfile: str,
         if ocsp_response:
             cert_hash = hashlib.sha256(open(certfile, 'rb').read()).hexdigest()
             _ocsp_cache[cert_hash] = (ocsp_response, time.time())
-            print("✅ OCSP response cached (full stapling requires aiosmtpd modification)")
+            print("[OK] OCSP response cached (full stapling requires aiosmtpd modification)")
             return True
         return False
     except Exception as e:
